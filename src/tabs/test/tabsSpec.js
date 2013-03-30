@@ -1,257 +1,227 @@
 describe('tabs', function() {
-  var elm, scope;
+  beforeEach(module('ui.bootstrap.tabs', 'template/tabs/tabset.html', 'template/tabs/tab.html'));
 
-  // load the tabs code
-  beforeEach(module('ui.bootstrap.tabs'));
-
-  // load the templates
-  beforeEach(module('template/tabs/tabs.html', 'template/tabs/pane.html'));
-
-  beforeEach(inject(function($rootScope, $compile) {
-    // we might move this tpl into an html file as well...
-    elm = angular.element(
-      '<div>' +
-        '<tabs>' +
-          '<pane heading="First Tab">' +
-            'first content is {{first}}' +
-          '</pane>' +
-          '<pane heading="Second Tab">' +
-            'second content is {{second}}' +
-          '</pane>' +
-        '</tabs>' +
-      '</div>');
-
-    scope = $rootScope;
-    $compile(elm)(scope);
-    scope.$digest();
-  }));
-
-
-  it('should create clickable titles', inject(function($compile, $rootScope) {
-    var titles = elm.find('ul.nav-tabs li a');
-
-    expect(titles.length).toBe(2);
-    expect(titles.eq(0).text()).toBe('First Tab');
-    expect(titles.eq(1).text()).toBe('Second Tab');
-  }));
-
-
-  it('should bind the content', function() {
-    var contents = elm.find('div.tab-content div.tab-pane');
-
-    expect(contents.length).toBe(2);
-    expect(contents.eq(0).text()).toBe('first content is ');
-    expect(contents.eq(1).text()).toBe('second content is ');
-
-    scope.$apply(function() {
-      scope.first = 123;
-      scope.second = 456;
-    });
-
-    expect(contents.eq(0).text()).toBe('first content is 123');
-    expect(contents.eq(1).text()).toBe('second content is 456');
-  });
-
-
-  it('should set active class on title', function() {
-    var titles = elm.find('ul.nav-tabs li');
-
-    expect(titles.eq(0)).toHaveClass('active');
-    expect(titles.eq(1)).not.toHaveClass('active');
-  });
-
-
-  it('should set active class on content', function() {
-    var contents = elm.find('div.tab-content div.tab-pane');
-
-    expect(contents.eq(0)).toHaveClass('active');
-    expect(contents.eq(1)).not.toHaveClass('active');
-  });
-
-  it('should change active and display on pane when title clicked', function() {
-    var titles = elm.find('ul.nav-tabs li');
-    var contents = elm.find('div.tab-content div.tab-pane');
-
-    // click the second tab
-    titles.eq(1).find('a').click();
-
-    // second title should be active
-    expect(titles.eq(0)).not.toHaveClass('active');
-    expect(titles.eq(1)).toHaveClass('active');
-
-    // second content should be active and visible
-    expect(contents.eq(0)).not.toHaveClass('active');
-    expect(contents.eq(0).css('display')).toBe('none');
-    expect(contents.eq(1)).toHaveClass('active');
-    expect(contents.eq(1).css('display')).not.toBe('none');
-  });
-});
-
-
-describe('remote selection', function() {
-  var elm, scope;
-
-  // load the tabs code
-  beforeEach(module('ui.bootstrap.tabs'));
-
-  // load the templates
-  beforeEach(module('template/tabs/tabs.html', 'template/tabs/pane.html'));
-
-  beforeEach(inject(function($rootScope, $compile) {
-    // we might move this tpl into an html file as well...
-    elm = angular.element(
-      '<div>' +
-        '<tabs>' +
-          '<pane ng-repeat="pane in panes" active="pane.active" heading="pane.title">' +
-            '{{pane.content}}}' +
-          '</pane>' +
-        '</tabs>' +
+  var scope, elm;
+  beforeEach(inject(function($compile, $rootScope) {
+    scope = $rootScope.$new();
+    scope.first = '1';
+    scope.second = '2';
+    scope.actives = {};
+    scope.selectFirst = function() {};
+    scope.selectSecond = function() {};
+    elm = $compile([
+      '<div>',
+      '  <tabset>',
+      '    <tab heading="First Tab {{first}}" active="actives.one" select="selectFirst()">',
+      '      first content is {{first}}',
+      '    </tab>',
+      '    <tab active="actives.two" select="selectSecond()">',
+      '      <tab-heading><b>Second</b> Tab {{second}}</tab-heading>',
+      '      second content is {{second}}',
+      '    </tab>',
+      '  </tabs>',
       '</div>'
-    );
-    scope = $rootScope;
-    scope.panes = [
-      { title:"Dynamic Title 1", content:"Dynamic content 1", active:true},
-      { title:"Dynamic Title 2", content:"Dynamic content 2" }
-    ];
-
-    $compile(elm)(scope);
-    scope.$digest();
+    ].join('\n'))(scope);
+    scope.$apply();
+    return elm;
   }));
 
-  it('should handle select attribute when select/deselect', function() {
-    var titles = elm.find('ul.nav-tabs li');
-    scope.$apply('panes[1].active=true');
-    expect(titles.eq(1)).toHaveClass('active');
+  function titles() {
+    return elm.find('ul.nav-tabs li');
+  }
+  function content() {
+    return elm.find('div.tab-content div.tab-pane');
+  }
 
-    titles.eq(0).find('a').click();
-    
-    expect(scope.panes[1].active).toBe(false);
+  it('should create clickable titles', function() {
+    var t = titles();
+    expect(t.length).toBe(2);
+    expect(t.find('a').eq(0).text()).toBe('First Tab 1');
+    expect(t.find('a').eq(1).html()).toBe('<b>Second</b> Tab 2');
   });
 
-  it('should select last active tab when multiple panes evaluate to active=true', function() {
-    var titles = elm.find('ul.nav-tabs li');
-    scope.$apply('panes[0].active=true;panes[1].active=true');
-    expect(titles.eq(1)).toHaveClass('active');
+  it('should bind first tab content and set active by default', function() {
+    expect(content().length).toBe(1);
+    expect(content().text().trim()).toBe('first content is 1');
+    expect(titles().eq(0)).toHaveClass('active');
+    expect(titles().eq(1)).not.toHaveClass('active');
+    expect(scope.actives.one).toBe(true);
+    expect(scope.actives.two).toBe(false);
   });
 
-  it('should deselect all panes when all atrributes set to false', function() {
-    var titles = elm.find('ul.nav-tabs li');
-    scope.$apply('panes[0].active=false');
-    expect(titles.eq(0)).not.toHaveClass('active');
-    expect(titles.eq(1)).not.toHaveClass('active');
+  it('should change active on click', function() {
+    titles().eq(1).find('a').click();
+    expect(content().text().trim()).toBe('second content is 2');
+    expect(titles().eq(0)).not.toHaveClass('active');
+    expect(titles().eq(1)).toHaveClass('active');
+    expect(scope.actives.one).toBe(false);
+    expect(scope.actives.two).toBe(true);
+  });
+
+  it('should call select callback on select', function() {
+    spyOn(scope, 'selectFirst');
+    spyOn(scope, 'selectSecond');
+    titles().eq(1).find('a').click();
+    expect(scope.selectSecond).toHaveBeenCalled();
+    titles().eq(0).find('a').click();
+    expect(scope.selectFirst).toHaveBeenCalled();
+  });
+
+});
+
+describe('ng-repeat', function() {
+  beforeEach(module('ui.bootstrap.tabs', 'template/tabs/tabset.html', 'template/tabs/tab.html'));
+
+  var scope, elm;
+  beforeEach(inject(function($compile, $rootScope) {
+    scope = $rootScope.$new();
+
+    function makeTab() {
+      var t = {active: false, select: function() {}};
+      t.selectSpy = spyOn(t, 'select');
+      return t;
+    }
+    scope.tabs = [
+      makeTab(), makeTab(), makeTab(), makeTab()
+    ];
+    elm = $compile([
+      '<tabset>',
+      '  <tab ng-repeat="t in tabs" active="t.active" select="t.select()">',
+      '    <tab-heading><b>heading</b> {{index}}</tab-heading>',
+      '    content {{$index}}',
+      '  </tab>',
+      '</tabset>'
+    ].join('\n'))(scope);
+    scope.$apply();
+  }));
+
+  function titles() {
+    return elm.find('ul.nav-tabs li');
+  }
+  function content() {
+    return elm.find('div.tab-content div.tab-pane');
+  }
+
+  function expectTabActive(activeTab) {
+    var _titles = titles();
+    angular.forEach(scope.tabs, function(tab, i) {
+      if (activeTab === tab) {
+        expect(tab.active).toBe(true);
+        //It should only call select ONCE for each select
+        expect(tab.selectSpy.callCount).toBe(1);
+        expect(_titles.eq(i)).toHaveClass('active');
+        expect(content().text().trim()).toBe('content ' + i);
+      } else {
+        expect(tab.active).toBe(false);
+        expect(_titles.eq(i)).not.toHaveClass('active');
+      }
+    });
+  }
+
+  it('should make tab titles with first content and first active', function() {
+    expect(titles().length).toBe(scope.tabs.length);
+    expectTabActive(scope.tabs[0]);
+  });
+
+  it('should switch active when clicking', function() {
+    titles().eq(3).find('a').click();
+    expectTabActive(scope.tabs[3]);
+  });
+
+  it('should switch active when setting active=true', function() {
+    scope.$apply('tabs[2].active = true');
+    expectTabActive(scope.tabs[2]);
+  });
+
+  it('should deselect all when no tabs are active', function() {
+    angular.forEach(scope.tabs, function(t) { t.active = false; });
+    scope.$apply();
+    expectTabActive(null);
+    expect(content().html()).toBe('');
+
+    scope.tabs[2].active = true;
+    scope.$apply();
+    expectTabActive(scope.tabs[2]);
   });
 });
 
-describe('tabs controller', function() {
-  var scope, ctrl;
+describe('tabset controller', function() {
+  function mockTab() {
+    return {
+      select: function() { this.active = true; },
+      deselect: function() { this.active = false; },
+      active: false
+    };
+  }
 
+  var scope, ctrl;
   beforeEach(module('ui.bootstrap.tabs'));
   beforeEach(inject(function($controller, $rootScope) {
     scope = $rootScope;
-
-    // instantiate the controller stand-alone, without the directive
-    ctrl = $controller('TabsController', {$scope: scope, $element: null});
+    //instantiate the controller stand-alone, without the directive
+    ctrl = $controller('TabsetController', {$scope: scope, $element: null});
   }));
 
 
   describe('select', function() {
 
-    it('should mark given pane selected', function() {
-      var pane = {};
+    it('should mark given tab selected', function() {
+      var tab = mockTab();
 
-      scope.select(pane);
-      expect(pane.selected).toBe(true);
+      ctrl.select(tab);
+      expect(tab.active).toBe(true);
     });
 
 
-    it('should deselect other panes', function() {
-      var pane1 = {}, pane2 = {}, pane3 = {};
+    it('should deselect other tabs', function() {
+      var tab1 = mockTab(), tab2 = mockTab(), tab3 = mockTab();
 
-      ctrl.addPane(pane1);
-      ctrl.addPane(pane2);
-      ctrl.addPane(pane3);
+      ctrl.addTab(tab1);
+      ctrl.addTab(tab2);
+      ctrl.addTab(tab3);
 
-      scope.select(pane1);
-      expect(pane1.selected).toBe(true);
-      expect(pane2.selected).toBe(false);
-      expect(pane3.selected).toBe(false);
+      ctrl.select(tab1);
+      expect(tab1.active).toBe(true);
+      expect(tab2.active).toBe(false);
+      expect(tab3.active).toBe(false);
 
-      scope.select(pane2);
-      expect(pane1.selected).toBe(false);
-      expect(pane2.selected).toBe(true);
-      expect(pane3.selected).toBe(false);
+      ctrl.select(tab2);
+      expect(tab1.active).toBe(false);
+      expect(tab2.active).toBe(true);
+      expect(tab3.active).toBe(false);
 
-      scope.select(pane3);
-      expect(pane1.selected).toBe(false);
-      expect(pane2.selected).toBe(false);
-      expect(pane3.selected).toBe(true);
+      ctrl.select(tab3);
+      expect(tab1.active).toBe(false);
+      expect(tab2.active).toBe(false);
+      expect(tab3.active).toBe(true);
     });
   });
 
 
-  describe('addPane', function() {
+  describe('addTab', function() {
 
-    it('should append pane', function() {
-      var pane1 = {}, pane2 = {};
+    it('should append tab', function() {
+      var tab1 = mockTab(), tab2 = mockTab();
 
-      expect(scope.panes).toEqual([]);
+      expect(ctrl.tabs).toEqual([]);
 
-      ctrl.addPane(pane1);
-      expect(scope.panes).toEqual([pane1]);
+      ctrl.addTab(tab1);
+      expect(ctrl.tabs).toEqual([tab1]);
 
-      ctrl.addPane(pane2);
-      expect(scope.panes).toEqual([pane1, pane2]);
+      ctrl.addTab(tab2);
+      expect(ctrl.tabs).toEqual([tab1, tab2]);
     });
 
 
     it('should select the first one', function() {
-      var pane1 = {}, pane2 = {};
+      var tab1 = mockTab(), tab2 = mockTab();
 
-      ctrl.addPane(pane1);
-      expect(pane1.selected).toBe(true);
+      ctrl.addTab(tab1);
+      expect(tab1.active).toBe(true);
 
-      ctrl.addPane(pane2);
-      expect(pane1.selected).toBe(true);
+      ctrl.addTab(tab2);
+      expect(tab1.active).toBe(true);
     });
   });
-});
-
-describe('remove tabs', function() {
-
-  beforeEach(module("ui.bootstrap.tabs", "template/tabs/tabs.html", "template/tabs/pane.html"));
-
-  it('should remove title panes when elements are destroyed and change selection', inject(function($controller, $compile, $rootScope) {
-    var scope = $rootScope;
-    var elm = $compile("<tabs><pane heading='1'>Hello</pane><pane ng-repeat='i in list' heading='tab {{i}}'>content {{i}}</pane></tabs>")(scope);
-    scope.$apply();
-
-    function titles() {
-      return elm.find('ul.nav-tabs li');
-    }
-    function panes() {
-      return elm.find('div.tab-pane');
-    }
-
-    expect(titles().length).toBe(1);
-    expect(panes().length).toBe(1);
-
-    scope.$apply('list = [1,2,3]');
-    expect(titles().length).toBe(4);
-    expect(panes().length).toBe(4);
-    titles().find('a').eq(3).click();
-    expect(panes().eq(3)).toHaveClass('active');
-    expect(panes().eq(3).text().trim()).toBe('content 3');
-    expect(titles().eq(3)).toHaveClass('active');
-    expect(titles().eq(3).text().trim()).toBe('tab 3');
-
-    scope.$apply('list = [1,2]');
-    expect(panes().length).toBe(3);
-    expect(titles().length).toBe(3);
-    expect(panes().eq(2)).toHaveClass('active');
-    expect(panes().eq(2).text().trim()).toBe('content 2');
-    expect(titles().eq(2)).toHaveClass('active');
-    expect(titles().eq(2).text().trim()).toBe('tab 2');
-  }));
-
 });
 
